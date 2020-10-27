@@ -1,0 +1,17 @@
+CC=gcc
+CFLAGS=-c -pthread -Wno-unused-result -g -std=gnu99 -Wall
+LDFLAGS=-pthread
+PROG=s5pr.c
+OBJECTS=$(PROG:.c=.o)
+EXECUTABLE=s5pr
+
+all: $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+.c.o:
+	$(CC) $(CFLAGS) $< -o $@
+
+clean:
+	rm -rf $(OBJECTS) $(EXECUTABLE)
