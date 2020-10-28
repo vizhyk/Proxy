@@ -39,26 +39,26 @@
 /*Socks command definitions*/
 #define CONNECT 0x01
 
-/*Sock command_type definitions*/
+/*Socks command_type definitions*/
 #define IP 0x01
 #define DOMAIN 0x03
 
+/*Socks status definition*/
+#define OK 0x00
+#define FAILED 0x05
+
 unsigned short int port = 1080;// SOCKS server default port ( RFC1928)
 
-enum socks_status {
-	OK = 0x00,
-	FAILED = 0x05
-};
-
 char *pattern_find (char *string1, const char *string2) {
-    char *a = string1, *b = string2;
+    char *a = string1;
+    char *b = string2;
     for (;;)
-    if (!*b)
-    return (char *)string1;
-    else if (!*a)
-    return NULL;
-    else if (*a++ != *b++) {
-    a = ++string1; b = string2;
+        if (!*b)
+            return (char *)string1;
+        else if (!*a)
+            return NULL;
+        else if (*a++ != *b++) {
+            a = ++string1; b = string2;
     }
 }
 
@@ -67,12 +67,9 @@ char *pattern_find (char *string1, const char *string2) {
 void plog(const char *format, ...)
 {
     va_list ap;
-
     va_start(ap, format);
-
-        vfprintf(stderr, format, ap);
-        fprintf(stderr, "\n");
-    
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
     va_end(ap);
 }
 
@@ -142,47 +139,41 @@ int app_connect(int type, void *buf, unsigned short int portnum)
         remote.sin_port = htons(portnum);
 
         fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (connect(fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
-            //plog("connect() in app_connect");    //log_message("connect() in app_connect");
-            close(fd);
-            return -1;
-        }
+                if (connect(fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
+                    close(fd);
+                        return -1;
+                }
 
-        return fd;
+                            return fd;
     } else if (type == DOMAIN) {
          
         char portaddr[6];
         struct addrinfo *res;
         snprintf(portaddr, ARRAY_SIZE(portaddr), "%d", portnum);
-        //plog("getaddrinfo: %s %s", (char *)buf, portaddr); //log_message("getaddrinfo: %s %s", (char *)buf, portaddr);
-
         int ret = getaddrinfo((char *)buf, portaddr, NULL, &res);
-        if ((pattern_find(buf, BAD_SITE)) != NULL){               
-        plog("YOUTUBE WAS BLOCKED");
-        close(fd);
-        return -1;
-        }
-
-
-        if (ret == EAI_NODATA) {
-            return -1;
-        } else if (ret == 0) {
-            struct addrinfo *r;
-            for (r = res; r != NULL; r = r->ai_next) {
-    fd = socket(r->ai_family, r->ai_socktype,
-					    r->ai_protocol);
-                if (fd == -1) {
-                            continue;
-                }
-                ret = connect(fd, r->ai_addr, r->ai_addrlen);
-                if (ret == 0) {
-                    freeaddrinfo(res);
-                    return fd;
-                } else {
-                    close(fd);
-                }
+            if ((pattern_find(buf, BAD_SITE)) != NULL){               
+                plog("YOUTUBE WAS BLOCKED");
+                close(fd);
+                return -1;
             }
-        }
+                if (ret == EAI_NODATA) {
+                    return -1;
+                } else if (ret == 0) {
+                    struct addrinfo *r;
+                    for (r = res; r != NULL; r = r->ai_next) {
+                        fd = socket(r->ai_family, r->ai_socktype, r->ai_protocol);
+                            if (fd == -1) {
+                                 continue;
+                            }
+                                ret = connect(fd, r->ai_addr, r->ai_addrlen);
+                                    if (ret == 0) {
+                                        freeaddrinfo(res);
+                                        return fd;
+                                    } else {
+                                        close(fd);
+                                      }
+                    } 
+                  }
         freeaddrinfo(res);
         return -1;
     }
@@ -194,12 +185,9 @@ int socks_invitation(int fd, int *version)
 {
     char init[2];
     int nread = readn(fd, (void *)init, ARRAY_SIZE(init));
-    if (nread == 2 && init[0] != VERSION5 && init[0] != VERSION4) {
-    //plog("They send us %hhX %hhX", init[0], init[1]);   
-    //plog("Incompatible version!");                
+    if (nread == 2 && init[0] != VERSION5 && init[0] != VERSION4) {             
         app_thread_exit(0, fd);
-    }
-    //plog("Initial %hhX %hhX", init[0], init[1]);         
+    }       
     *version = init[0];
     return init[1];
 }
@@ -223,9 +211,7 @@ void socks5_auth(int fd, int methods_count)
     int num = methods_count;
     char auth_type,type;
     for (int i = 0; i < num; i++) {
-        //char type; vvi 25102020
         readn(fd, (void *)&type, 1);
-        //plog("Method AUTH %hhX", type);   //log_message("Method AUTH %hhX", type);
         if ((type == NOAUTH) || (type == USERPASS)) {
             supported = 1;
         }
@@ -234,7 +220,6 @@ void socks5_auth(int fd, int methods_count)
     socks5_auth_notsupported(fd);
         app_thread_exit(1, fd);
     }
-    //vvi add 25102020
     auth_type = type;
     int ret = 0;
     switch (auth_type) {
@@ -253,8 +238,6 @@ int socks5_command(int fd)
 {
     char command[4];
     readn(fd, (void *)command, ARRAY_SIZE(command));
-    //plog("Command %hhX %hhX %hhX %hhX", command[0], command[1],
-    //	    command[2], command[3]);
     return command[3];
 }
 
@@ -262,7 +245,6 @@ unsigned short int socks_read_port(int fd)
 {
 	unsigned short int p;
 	readn(fd, (void *)&p, sizeof(p));
-	//plog("Port %hu", ntohs(p)); //log_message("Port %hu", ntohs(p));
 	return p;
 }
 
@@ -313,8 +295,6 @@ void app_socket_pipe(int fd0, int fd1)
     size_t nread;
     char buffer_r[BUFSIZE];
 
-   // plog("Connecting two sockets");  //log_message("Connecting two sockets");
-
     maxfd = (fd0 > fd1) ? fd0 : fd1;
     while (1) {
         FD_ZERO(&rd_set);
@@ -350,37 +330,36 @@ void *app_thread_process(void *fd)
     char methods = socks_invitation(net_fd, &version);
 
     switch (version) {
-    case VERSION5: {
+        case VERSION5: {
             socks5_auth(net_fd, methods);
             int command = socks5_command(net_fd);
 
-            if (command == IP) {
-                char *ip = socks_ip_read(net_fd);
-                unsigned short int p = socks_read_port(net_fd);
+                if (command == IP) {
+                    char *ip = socks_ip_read(net_fd);
+                    unsigned short int p = socks_read_port(net_fd);
 
-                inet_fd = app_connect(IP, (void *)ip, ntohs(p));
-                if (inet_fd == -1) {
-                app_thread_exit(1, net_fd);
-                }
-                socks5_ip_send_response(net_fd, ip, p);
-                free(ip);
-                break;
-            } else if (command == DOMAIN) {
-                unsigned char size;
-                char *address = socks5_domain_read(net_fd, &size);
-                unsigned short int p = socks_read_port(net_fd);
-
-                inet_fd = app_connect(DOMAIN, (void *)address, ntohs(p));
-                if (inet_fd == -1) {
-                    app_thread_exit(1, net_fd);
-                }
-                socks5_domain_send_response(net_fd, address, size, p);
-                free(address);
-                break;
-            } else {
-                app_thread_exit(1, net_fd);
-            }
-    }
+                    inet_fd = app_connect(IP, (void *)ip, ntohs(p));
+                    if (inet_fd == -1) {
+                        app_thread_exit(1, net_fd);
+                    }
+                    socks5_ip_send_response(net_fd, ip, p);
+                    free(ip);
+                    break;
+                } else if (command == DOMAIN) {
+                    unsigned char size;
+                    char *address = socks5_domain_read(net_fd, &size);
+                    unsigned short int p = socks_read_port(net_fd);
+                    inet_fd = app_connect(DOMAIN, (void *)address, ntohs(p));
+                        if (inet_fd == -1) {
+                            app_thread_exit(1, net_fd);
+                        }
+                            socks5_domain_send_response(net_fd, address, size, p);
+                            free(address);
+                            break;
+                        } else {
+                            app_thread_exit(1, net_fd);
+                               }
+        }
 
     }
 
@@ -452,37 +431,29 @@ int app_loop()
 
 void usage(char *app)
 {
-    printf
-        ("USAGE: %s [-h][-n PORT][-a AUTHTYPE][-u USERNAME][-l LOGFILE]\n",
-        app);
-	//printf("AUTHTYPE: 0 for NOAUTH, 2 for USERPASS\n");
-    printf
-        ("By default: port is 1080, authtype is no auth, logfile is stdout\n");
+    printf("USAGE: %s [-h][-n PORT][-a AUTHTYPE][-u USERNAME][-l LOGFILE]\n",app);
+    printf ("By default: port is 1080, authtype is no auth, logfile is stdout\n");
     exit(1);
 }
 
 int main(int argc, char *argv[])
 {
     int ret;
-
     signal(SIGPIPE, SIG_IGN);
 
     while ((ret = getopt(argc, argv, "n:l:h")) != -1) {
         switch (ret) {
-
-        case 'n':{
+            case 'n':{
                 port = atoi(optarg) & 0xffff;
                 break;
             }
 
-        case 'h':
-        default:
-            usage(argv[0]);
+            case 'h':
+                default:
+                usage(argv[0]);
         }
     }
-    //plog("Starting with authtype %X", NOAUTH); 
     app_loop();
     return 0;
 }
-
 
